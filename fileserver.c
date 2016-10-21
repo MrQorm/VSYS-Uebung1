@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <ctype.h>
 #include <dirent.h>
+#include <sys/stat.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -24,6 +25,12 @@ int main (int argc, char **argv)
   char buffer[BUF];
   int size, PORT;
   struct sockaddr_in address, cliaddress;
+  char newline = '\n';
+  char filename[BUF-4];
+  struct stat st;
+  unsigned long int filesize, remain_data;
+  FILE *received_file;
+  unsigned long int len;
 
   if (argc < 3)
   {
@@ -74,8 +81,6 @@ int main (int argc, char **argv)
            buffer[size] = '\0';
            printf ("Message received: %s\n", buffer);
 
-           //buffer = tolower(buffer);
-
            int i = 0;
 
            while(buffer[i])
@@ -88,33 +93,99 @@ int main (int argc, char **argv)
            {
                 DIR *dp;
                 struct dirent *ep;
-                dp = opendir ("./");
+                dp = opendir (argv[2]);
 
                 if (dp != NULL)
                 {
+                    send(new_socket, &newline, 1, 0);
+                    send(new_socket, "Content of ", strlen("Content of "), 0);
+                    send(new_socket, argv[2], strlen(argv[2]), 0);
+                    send(new_socket, &newline, 1, 0);
+                    send(new_socket, &newline, 1, 0);
+
                     while ((ep = readdir (dp)) != NULL)
                     {
-                         printf("%s\n", ep->d_name);
+                         //printf("%s\n", ep->d_name);
+                         //st = (const struct stat){ 0 };
+
+                         strcpy(buffer, ep->d_name);
+
+                         send(new_socket, buffer, strlen(ep->d_name),0);
+                         send(new_socket, &newline, 1, 0);
+
+                         stat(ep->d_name, &st);
+                         filesize = st.st_size;
+                         sprintf(buffer, "%lu", filesize);
+
+                         send(new_socket, "Size in Bytes: ", strlen("Size in Bytes: "), 0);
+                         send(new_socket, buffer, strlen(buffer),0);
+                         send(new_socket, &newline, 1, 0);
+                         send(new_socket, &newline, 1, 0);
                     }
 
                     (void) closedir (dp);
                 }
                 else
                 {
-                    perror ("Couldn't open the directory");
+                    perror ("Couldn't open the directory\n");
                 }
            }
-           else if(strncmp(buffer, "get", size-1) == 0)
+           else if(strncmp(buffer, "get", 3) == 0)
            {
-               printf("something\n");
+               if(size > 4)
+               {
+                    for(int i = 0; i < size - 4; i++)
+                    {
+                         filename[i] = buffer[i+4];
+                    }
+
+                    printf("%s", filename);
+               }
            }
-           else if(strncmp(buffer, "put", size-1) == 0)
+           else if(strncmp(buffer, "put", 3) == 0)
            {
-                printf("bla\n");
+               if(size > 4)
+               {
+                    for(int i = 0; i < size - 4; i++)
+                    {
+                         filename[i] = buffer[i+4];
+                    }
+                    filename[size-5] = '\0';
+               }
+
+               recv(new_socket, buffer, BUF-1, 0);
+               filesize = atoi(buffer);
+               printf("%lu\n", filesize);
+
+               char filepath[256];
+
+               strcpy(filepath, argv[2]);
+               strcat(filepath, "/");
+               strcat(filepath, filename);
+
+               printf("%s\n", filepath);
+
+               received_file = fopen(filepath, "w");
+               if(received_file == NULL)
+               {
+                    printf("Error while opening the file\n");
+                    return EXIT_FAILURE;
+               }
+               remain_data = filesize;
+
+               while(((len = recv(new_socket, buffer, BUF-1, 0)) > 0) && (remain_data > 0))
+               {
+                    fwrite(buffer, sizeof(char), len, received_file);
+                    remain_data -= len;
+                    printf("\nReceived %lu bytes, %lu bytes remain", len, remain_data);
+               }
+
+               fclose(received_file);
+
            }
            else if(strncmp(buffer, "quit", size-1) == 0)
            {
-                printf("blubb\n");
+                printf("User terminated connection\n");
            }
         }
         else if (size == 0)
