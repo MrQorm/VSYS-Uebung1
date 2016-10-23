@@ -25,12 +25,15 @@ int main (int argc, char **argv)
   char buffer[BUF];
   int size, PORT;
   struct sockaddr_in address, cliaddress;
-  char newline = '\n';
+  char newline[2] = "\n";
+  char temp[256];
   char filename[BUF-4];
-  struct stat st;
+
   unsigned long int filesize, remain_data;
   FILE *received_file;
   unsigned long int len;
+
+  char filepath[256];
 
   if (argc < 3)
   {
@@ -75,21 +78,17 @@ int main (int argc, char **argv)
      }
      do
      {
+          memset(&buffer[0], 0 , BUF);
+          printf("Waiting for message\n");
+
         size = recv (new_socket, buffer, BUF-1, 0);
+
         if( size > 0)
         {
            buffer[size] = '\0';
            printf ("Message received: %s\n", buffer);
 
-           int i = 0;
-
-           while(buffer[i])
-           {
-                buffer[i] = tolower(buffer[i]);
-                i++;
-           }
-
-           if (strncmp(buffer, "list", size-1) == 0)
+           if (strncmp(buffer, "list", 4) == 0)
            {
                 DIR *dp;
                 struct dirent *ep;
@@ -97,30 +96,80 @@ int main (int argc, char **argv)
 
                 if (dp != NULL)
                 {
-                    send(new_socket, &newline, 1, 0);
+                    /*send(new_socket, &newline, 1, 0);
                     send(new_socket, "Content of ", strlen("Content of "), 0);
                     send(new_socket, argv[2], strlen(argv[2]), 0);
                     send(new_socket, &newline, 1, 0);
-                    send(new_socket, &newline, 1, 0);
+                    send(new_socket, &newline, 1, 0);*/
+
+                    int filecounter = 0;
+
+                    while((ep = readdir(dp)) != NULL)
+                    {
+                         if(!(!strcmp(ep->d_name, ".") || !strcmp(ep->d_name, "..")))
+                         {
+                              filecounter++;
+                         }
+                    }
+
+                    dp = opendir(argv[2]);
+
+                    sprintf(temp, "%d", filecounter);
+
+                    strcpy(buffer, newline);
+                    strcat(buffer, "Content of ");
+                    strcat(buffer, argv[2]);
+                    strcat(buffer, ": ");
+                    strcat(buffer, temp);
+                    strcat(buffer, " files:");
+                    strcat(buffer, newline);
+                    strcat(buffer, newline);
+
+                    send(new_socket, buffer, strlen(buffer), 0);
+
+                    send(new_socket, temp, strlen(temp), 0);
+
+
 
                     while ((ep = readdir (dp)) != NULL)
                     {
                          //printf("%s\n", ep->d_name);
                          //st = (const struct stat){ 0 };
+                         struct stat st;
 
-                         strcpy(buffer, ep->d_name);
+                         strcpy(filepath, argv[2]);
+                         strcat(filepath, ep->d_name);
 
-                         send(new_socket, buffer, strlen(ep->d_name),0);
-                         send(new_socket, &newline, 1, 0);
+                         if (stat(filepath, &st) == 0);
+                         {
+                              filesize = st.st_size;
 
-                         stat(ep->d_name, &st);
-                         filesize = st.st_size;
-                         sprintf(buffer, "%lu", filesize);
+                              if(!(!strcmp(ep->d_name, ".") || !strcmp(ep->d_name, "..")))
+                              {
+                                   strcpy(buffer, ep->d_name);
+                                   strcat(buffer, newline);
 
-                         send(new_socket, "Size in Bytes: ", strlen("Size in Bytes: "), 0);
-                         send(new_socket, buffer, strlen(buffer),0);
-                         send(new_socket, &newline, 1, 0);
-                         send(new_socket, &newline, 1, 0);
+                                   /*send(new_socket, buffer, strlen(buffer),0);
+                                   send(new_socket, &newline, 1, 0);*/
+
+                                   filesize = st.st_size;
+
+                                   sprintf(temp, "%lu", filesize);
+                                   //sprintf(buffer, "%lu", filesize);
+
+                                   /*send(new_socket, "Size in Bytes: ", strlen("Size in Bytes: "), 0);
+                                   send(new_socket, buffer, strlen(buffer),0);
+                                   send(new_socket, &newline, 1, 0);
+                                   send(new_socket, &newline, 1, 0);*/
+
+                                   strcat(buffer, "Size in Bytes: ");
+                                   strcat(buffer, temp);
+                                   strcat(buffer, newline);
+                                   strcat(buffer, newline);
+
+                                   send(new_socket, buffer, strlen(buffer), 0);
+                              }
+                         }
                     }
 
                     (void) closedir (dp);
@@ -130,7 +179,7 @@ int main (int argc, char **argv)
                     perror ("Couldn't open the directory\n");
                 }
            }
-           else if(strncmp(buffer, "get", 3) == 0)
+           else if(strncmp(buffer, "get ", 4) == 0)
            {
                if(size > 4)
                {
@@ -142,7 +191,7 @@ int main (int argc, char **argv)
                     printf("%s", filename);
                }
            }
-           else if(strncmp(buffer, "put", 3) == 0)
+           else if(strncmp(buffer, "put ", 4) == 0)
            {
                if(size > 4)
                {
@@ -153,14 +202,14 @@ int main (int argc, char **argv)
                     filename[size-5] = '\0';
                }
 
-               recv(new_socket, buffer, BUF-1, 0);
-               filesize = atoi(buffer);
-               printf("%lu\n", filesize);
+               send(new_socket, "ready", sizeof("ready"), 0);
 
-               char filepath[256];
+               size = recv(new_socket, buffer, BUF-1, 0);
+               buffer[size] = '\0';
+               filesize = atoi(buffer);
+               printf("%lu bytes\n", filesize);
 
                strcpy(filepath, argv[2]);
-               strcat(filepath, "/");
                strcat(filepath, filename);
 
                printf("%s\n", filepath);
@@ -168,17 +217,26 @@ int main (int argc, char **argv)
                received_file = fopen(filepath, "w");
                if(received_file == NULL)
                {
-                    printf("Error while opening the file\n");
+                    printf("Error while creating the file\n");
                     return EXIT_FAILURE;
                }
                remain_data = filesize;
 
-               while(((len = recv(new_socket, buffer, BUF-1, 0)) > 0) && (remain_data > 0))
+               //while(((len = recv(new_socket, buffer, BUF-1, 0)) > 0) && (remain_data > 0))
+               while(remain_data > 0)
                {
-                    fwrite(buffer, sizeof(char), len, received_file);
-                    remain_data -= len;
-                    printf("\nReceived %lu bytes, %lu bytes remain", len, remain_data);
+                    if((len = recv(new_socket, buffer, BUF-1, 0)) > 0)
+                    {
+                         printf("\n%lu bytes received\n", len);
+                         buffer[len] = '\0';
+                         fwrite(buffer, sizeof(char), len, received_file);
+                         remain_data -= len;
+                         printf("Wrote %lu bytes, %lu bytes remain", len, remain_data);
+
+                    }
                }
+
+               printf("\nReceived file\n");
 
                fclose(received_file);
 

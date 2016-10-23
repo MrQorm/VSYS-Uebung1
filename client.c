@@ -75,22 +75,26 @@ int main (int argc, char **argv)
 
   do
   {
+     memset(&buffer[0], 0 , BUF);
+
      printf ("Send message: ");
+
      fgets (buffer, BUF, stdin);
-     send(create_socket, buffer, strlen (buffer), 0);
+     size = send(create_socket, buffer, strlen (buffer), 0);
 
      if(strncmp(buffer, "list", 4) == 0)
      {
-          size = recv (create_socket, buffer, BUF-1, 0);
+          size = recv(create_socket, buffer, BUF-1, 0);
+
+          if(size > 0)
           {
-               if(size > 0)
-               {
-                    buffer[size] ='\0';
-                    printf("%s", buffer);
-               }
+               buffer[size] ='\0';
+               printf("%s", buffer);
           }
+
+
      }
-     else if(strncmp(buffer, "get", 3) == 0)
+     else if(strncmp(buffer, "get ", 4) == 0)
      {
          if(size > 4)
          {
@@ -102,10 +106,8 @@ int main (int argc, char **argv)
               printf("%s", filename);
          }
      }
-     else if(strncmp(buffer, "put", 3) == 0)
+     else if(strncmp(buffer, "put ", 4) == 0)
      {
-          size = strlen(buffer);
-
          if(size > 4)
          {
               for(int i = 4; i < size; i++)
@@ -115,8 +117,11 @@ int main (int argc, char **argv)
               filename[size-5] = '\0';
          }
 
+         size = recv(create_socket, buffer, BUF-1, 0);
+
          int fd = open(filename, O_RDONLY);
-         if(fd < 0)
+
+         if(fd == -1)
          {
               printf("Error while opening file\n");
               return EXIT_FAILURE;
@@ -144,8 +149,12 @@ int main (int argc, char **argv)
          while(((sent_bytes = sendfile(create_socket, fd, &offset, BUF-1)) > 0) && (remain_data > 0))
          {
               remain_data -= sent_bytes;
-              printf("Sent %lu bytes of files data, offset ist now %li and %lu bytes remain\n", sent_bytes, offset, remain_data);
+              printf("Sent %lu bytes of data, offset ist now %li and %lu bytes remain\n", sent_bytes, offset, remain_data);
          }
+
+         printf("Finished sending\n");
+
+         //size = recv(create_socket, buffer, BUF-1, 0);
      }
   }
   while (strcmp (buffer, "quit\n") != 0);
