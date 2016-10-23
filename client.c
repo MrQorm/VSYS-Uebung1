@@ -119,6 +119,13 @@ int main (int argc, char **argv)
 
          size = recv(create_socket, buffer, BUF-1, 0);
 
+         //damit der Befehl send(new_socket, "ready", sizeof("ready"), 0); des Fileservers aufgefangen wird
+         if(size > 0)
+         {
+              buffer[size] ='\0';
+              printf("%s", buffer);
+         }
+
          int fd = open(filename, O_RDONLY);
 
          if(fd == -1)
@@ -155,6 +162,7 @@ int main (int argc, char **argv)
          printf("Finished sending\n");
 
          //size = recv(create_socket, buffer, BUF-1, 0);
+         close (fd);
      }
   }
   while (strcmp (buffer, "quit\n") != 0);
