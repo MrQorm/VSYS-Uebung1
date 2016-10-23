@@ -110,29 +110,10 @@ int main (int argc, char **argv)
                          {
                               filecounter++;
                          }
-                    }
+                    //
 
-                    dp = opendir(argv[2]);
-
-                    sprintf(temp, "%d", filecounter);
-
-                    strcpy(buffer, newline);
-                    strcat(buffer, "Content of ");
-                    strcat(buffer, argv[2]);
-                    strcat(buffer, ": ");
-                    strcat(buffer, temp);
-                    strcat(buffer, " files:");
-                    strcat(buffer, newline);
-                    strcat(buffer, newline);
-
-                    send(new_socket, buffer, strlen(buffer), 0);
-
-                    send(new_socket, temp, strlen(temp), 0);
-
-
-
-                    while ((ep = readdir (dp)) != NULL)
-                    {
+                    //while ((ep = readdir (dp)) != NULL)
+                    //
                          //printf("%s\n", ep->d_name);
                          //st = (const struct stat){ 0 };
                          struct stat st;
@@ -143,16 +124,18 @@ int main (int argc, char **argv)
                          if (stat(filepath, &st) == 0);
                          {
                               filesize = st.st_size;
+                              printf("1: %lu\n", filesize);
 
                               if(!(!strcmp(ep->d_name, ".") || !strcmp(ep->d_name, "..")))
                               {
-                                   strcpy(buffer, ep->d_name);
+                                   strcat(buffer, ep->d_name);
                                    strcat(buffer, newline);
 
                                    /*send(new_socket, buffer, strlen(buffer),0);
                                    send(new_socket, &newline, 1, 0);*/
 
                                    filesize = st.st_size;
+                                   printf("2: %lu\n", filesize);
 
                                    sprintf(temp, "%lu", filesize);
                                    //sprintf(buffer, "%lu", filesize);
@@ -167,10 +150,27 @@ int main (int argc, char **argv)
                                    strcat(buffer, newline);
                                    strcat(buffer, newline);
 
-                                   send(new_socket, buffer, strlen(buffer), 0);
+                                   //send(new_socket, buffer, strlen(buffer), 0);
                               }
                          }
                     }
+
+                    dp = opendir(argv[2]);
+
+                    sprintf(temp, "%d", filecounter);
+
+                    strcat(buffer, newline);
+                    strcat(buffer, "Content of ");
+                    strcat(buffer, argv[2]);
+                    strcat(buffer, ": ");
+                    strcat(buffer, temp);
+                    strcat(buffer, " files");
+                    strcat(buffer, newline);
+                    strcat(buffer, newline);
+
+                    send(new_socket, buffer, strlen(buffer), 0);
+
+                    //send(new_socket, temp, strlen(temp), 0);
 
                     (void) closedir (dp);
                 }
