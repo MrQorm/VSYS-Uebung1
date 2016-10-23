@@ -106,11 +106,6 @@ int main (int argc, char **argv)
 
                     while((ep = readdir(dp)) != NULL)
                     {
-                         if(!(!strcmp(ep->d_name, ".") || !strcmp(ep->d_name, "..")))
-                         {
-                              filecounter++;
-                         }
-                    //
 
                     //while ((ep = readdir (dp)) != NULL)
                     //
@@ -119,15 +114,14 @@ int main (int argc, char **argv)
                          struct stat st;
 
                          strcpy(filepath, argv[2]);
+                         strcat(filepath, "/");
                          strcat(filepath, ep->d_name);
 
                          if (stat(filepath, &st) == 0);
                          {
-                              filesize = st.st_size;
-                              printf("1: %lu\n", filesize);
-
                               if(!(!strcmp(ep->d_name, ".") || !strcmp(ep->d_name, "..")))
                               {
+                                   filecounter++;
                                    strcat(buffer, ep->d_name);
                                    strcat(buffer, newline);
 
@@ -135,7 +129,6 @@ int main (int argc, char **argv)
                                    send(new_socket, &newline, 1, 0);*/
 
                                    filesize = st.st_size;
-                                   printf("2: %lu\n", filesize);
 
                                    sprintf(temp, "%lu", filesize);
                                    //sprintf(buffer, "%lu", filesize);
