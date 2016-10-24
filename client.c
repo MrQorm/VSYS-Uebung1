@@ -119,6 +119,12 @@ int main (int argc, char **argv)
 
          size = recv(create_socket, buffer, BUF-1, 0);
 
+         if(size > 0)
+         {
+              buffer[size] ='\0';
+              printf("%s", buffer);
+         }
+
          int fd = open(filename, O_RDONLY);
 
          if(fd == -1)
