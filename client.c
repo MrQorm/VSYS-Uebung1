@@ -115,13 +115,14 @@ int main (int argc, char **argv)
        }
 
        //receive server's ready
+       /*
        size = recv(create_socket, buffer, BUF-1, 0);
 
        if(size > 0)
        {
             buffer[size] ='\0';
             printf("%s", buffer);
-       }
+       }*/
 
     //receive file size
       size = recv(create_socket, buffer, BUF-1, 0);
@@ -151,8 +152,11 @@ int main (int argc, char **argv)
        }
        remain_data = filesize;
 
+       send(create_socket, "ready", sizeof("ready"), 0);
+
        while(remain_data > 0)
        {
+            printf("test\n");
             if((len = recv(create_socket, buffer, BUF-1, 0)) > 0)
             {
                  printf("\n%lu bytes received\n", len);

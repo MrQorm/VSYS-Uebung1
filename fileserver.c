@@ -169,7 +169,7 @@ int main (int argc, char **argv)
              }
 
              //send ready to client
-             send(new_socket, "ready\n", sizeof("ready\n"), 0);
+             //send(new_socket, "ready\n", sizeof("ready\n"), 0);
 
              strcpy(filepath, argv[2]);
              strcat(filepath, filename);
@@ -196,6 +196,8 @@ int main (int argc, char **argv)
                   printf("Error while sending filesize\n");
                   return EXIT_FAILURE;
              }
+
+             recv(new_socket, buffer, BUF-1, 0);
 
              offset = 0;
              sent_bytes = 0;
