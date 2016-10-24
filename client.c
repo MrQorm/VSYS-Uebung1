@@ -105,6 +105,7 @@ int main (int argc, char **argv)
 //GET BEFEHL
      else if(strncmp(buffer, "get ", 4) == 0)
      {
+       //get the name of the file to be transferred
        if(size > 4)
        {
             for(int i = 0; i < size - 4; i++)
@@ -114,31 +115,15 @@ int main (int argc, char **argv)
             filename[size-5] = '\0';
        }
 
-       //receive server's ready
-       /*
-       size = recv(create_socket, buffer, BUF-1, 0);
-
-       if(size > 0)
-       {
-            buffer[size] ='\0';
-            printf("%s", buffer);
-       }*/
-
     //receive file size
       size = recv(create_socket, buffer, BUF-1, 0);
-       if(size > 0)
-       {
-            buffer[size] ='\0';
-            printf("%s", buffer);
-       }
 
        buffer[size] = '\0';
        filesize = atoi(buffer);
        printf("%lu bytes\n", filesize);
 
 
-//filepath where files are going to be stored
-
+//files are going to be stored in current directory
        strcpy(filepath, "./");
        strcat(filepath, filename);
 
@@ -152,11 +137,12 @@ int main (int argc, char **argv)
        }
        remain_data = filesize;
 
+//sends a ready message to the server
        send(create_socket, "ready", sizeof("ready"), 0);
 
+//receives file, prints remaining data to be received
        while(remain_data > 0)
        {
-            printf("test\n");
             if((len = recv(create_socket, buffer, BUF-1, 0)) > 0)
             {
                  printf("\n%lu bytes received\n", len);
@@ -165,10 +151,11 @@ int main (int argc, char **argv)
                  remain_data -= len;
                  printf("Wrote %lu bytes, %lu bytes remain\n", len, remain_data);
 
+                 if (remain_data == 0) {
+                   printf("Received file\n\n");
+                 }
             }
        }
-
-       printf("Received file\n\n");
 
        fclose(received_file);
 
@@ -178,6 +165,7 @@ int main (int argc, char **argv)
 
      else if(strncmp(buffer, "put ", 4) == 0)
      {
+       //get the name of the file to be transferred
          if(size > 4)
          {
               for(int i = 4; i < size; i++)
@@ -187,7 +175,7 @@ int main (int argc, char **argv)
               filename[size-5] = '\0';
          }
 
-         //receive the server's ready
+         //receive the server's ready and print it
          size = recv(create_socket, buffer, BUF-1, 0);
 
          if(size > 0)
@@ -196,6 +184,7 @@ int main (int argc, char **argv)
               printf("%s", buffer);
          }
 
+//open the file which is to be sent to the server
          int fd = open(filename, O_RDONLY);
 
          if(fd == -1)
@@ -210,6 +199,7 @@ int main (int argc, char **argv)
               return EXIT_FAILURE;
          }
 
+//size of the file is sent to server
          sprintf(file_size, "%li", st.st_size);
 
          len = send(create_socket, file_size, sizeof(file_size), 0);
@@ -223,6 +213,7 @@ int main (int argc, char **argv)
          sent_bytes = 0;
          remain_data = st.st_size;
 
+//sending file to server
          while(((sent_bytes = sendfile(create_socket, fd, &offset, BUF-1)) > 0) && (remain_data > 0))
          {
               remain_data -= sent_bytes;
@@ -235,6 +226,8 @@ int main (int argc, char **argv)
      }
   }
   while (strcmp (buffer, "quit\n") != 0);
+//if the user enters the quit command, the loop is ended and the socket gets closed
+
   close (create_socket);
   return EXIT_SUCCESS;
 }

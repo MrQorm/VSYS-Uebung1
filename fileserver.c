@@ -97,6 +97,7 @@ int main (int argc, char **argv)
 //LIST BEFEHL
            if (strncmp(buffer, "list", 4) == 0)
            {
+             //open server directory
                 DIR *dp;
                 struct dirent *ep;
                 dp = opendir (argv[2]);
@@ -106,6 +107,7 @@ int main (int argc, char **argv)
                     int filecounter = 0;
                     strcpy(buffer, "\n");
 
+                    //all files in directory get copied to buffer
                     while((ep = readdir(dp)) != NULL)
                     {
                          struct stat st;
@@ -133,6 +135,7 @@ int main (int argc, char **argv)
                          }
                     }
 
+                    //filepath and number of files in it get copied to buffer
                     dp = opendir(argv[2]);
 
                     sprintf(temp, "%d", filecounter);
@@ -146,6 +149,7 @@ int main (int argc, char **argv)
                     strcat(buffer, newline);
                     strcat(buffer, newline);
 
+                    //buffer is sent to client
                     send(new_socket, buffer, strlen(buffer), 0);
 
                     (void) closedir (dp);
@@ -159,6 +163,7 @@ int main (int argc, char **argv)
 //GET BEFEHL
            else if(strncmp(buffer, "get ", 4) == 0)
            {
+             //get the name of the file to be transferred
              if(size > 4)
              {
                   for(int i = 4; i < size; i++)
@@ -168,10 +173,9 @@ int main (int argc, char **argv)
                   filename[size-5] = '\0';
              }
 
-             //send ready to client
-             //send(new_socket, "ready\n", sizeof("ready\n"), 0);
-
+             //open server directory
              strcpy(filepath, argv[2]);
+             strcat(filepath, "/");
              strcat(filepath, filename);
 
              int fd = open(filepath, O_RDONLY);
@@ -188,6 +192,7 @@ int main (int argc, char **argv)
                   return EXIT_FAILURE;
              }
 
+             //size of the file sent to client
             sprintf(file_size, "%li", st.st_size);
 
              len = send(new_socket, file_size, sizeof(file_size), 0);
@@ -197,12 +202,19 @@ int main (int argc, char **argv)
                   return EXIT_FAILURE;
              }
 
+             //client sends a ready
              recv(new_socket, buffer, BUF-1, 0);
+             if(size > 0)
+             {
+                  buffer[size] ='\0';
+                  printf("%s\n", buffer);
+             }
 
              offset = 0;
              sent_bytes = 0;
              remain_data = st.st_size;
 
+             //send file to client
              while(((sent_bytes = sendfile(new_socket, fd, &offset, BUF-1)) > 0) && (remain_data > 0))
              {
                   remain_data -= sent_bytes;
@@ -217,6 +229,7 @@ int main (int argc, char **argv)
 //PUT BEFEHL
            else if(strncmp(buffer, "put ", 4) == 0)
            {
+              //get the name of the file to be transferred
                if(size > 4)
                {
                     for(int i = 0; i < size - 4; i++)
@@ -226,14 +239,18 @@ int main (int argc, char **argv)
                     filename[size-5] = '\0';
                }
 
+               //send ready to client
                send(new_socket, "ready\n", sizeof("ready\n"), 0);
 
+               //receive file size from client
                size = recv(new_socket, buffer, BUF-1, 0);
                buffer[size] = '\0';
                filesize = atoi(buffer);
                printf("%lu bytes\n", filesize);
 
+               //print filepath where file gets stored
                strcpy(filepath, argv[2]);
+               strcat(filepath, "/");
                strcat(filepath, filename);
 
                printf("%s\n", filepath);
@@ -246,6 +263,7 @@ int main (int argc, char **argv)
                }
                remain_data = filesize;
 
+               //receive file and print stats
                while(remain_data > 0)
                {
                     if((len = recv(new_socket, buffer, BUF-1, 0)) > 0)
@@ -256,10 +274,11 @@ int main (int argc, char **argv)
                          remain_data -= len;
                          printf("Wrote %lu bytes, %lu bytes remain\n", len, remain_data);
 
+                         if (remain_data == 0) {
+                           printf("Received file\n\n");
+                         }
                     }
                }
-
-               printf("Received file\n\n");
 
                fclose(received_file);
 
