@@ -15,6 +15,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
+#include <dirent.h>
 #define BUF 1024
 //#define PORT 6543
 
@@ -24,12 +26,15 @@ int main (int argc, char **argv)
   char buffer[BUF];
   char filename[BUF];
   char file_size[256];
+  char filepath[256];
   struct sockaddr_in address;
   int size, PORT;
   struct stat st;
-  unsigned long int remain_data, sent_bytes;
+  unsigned long int remain_data, sent_bytes, filesize;
   long offset;
   ssize_t len;
+
+  FILE *received_file;
 
   if( argc < 3 )
   {
@@ -82,6 +87,8 @@ int main (int argc, char **argv)
      fgets (buffer, BUF, stdin);
      size = send(create_socket, buffer, strlen (buffer), 0);
 
+
+//LIST BEFEHL
      if(strncmp(buffer, "list", 4) == 0)
      {
           size = recv(create_socket, buffer, BUF-1, 0);
@@ -94,18 +101,77 @@ int main (int argc, char **argv)
 
 
      }
+
+//GET BEFEHL
      else if(strncmp(buffer, "get ", 4) == 0)
      {
-         if(size > 4)
-         {
-              for(int i = 0; i < size - 4; i++)
-              {
-                   filename[i] = buffer[i+4];
-              }
+       if(size > 4)
+       {
+            for(int i = 0; i < size - 4; i++)
+            {
+                 filename[i] = buffer[i+4];
+            }
+            filename[size-5] = '\0';
+       }
 
-              printf("%s", filename);
-         }
+       //receive server's ready
+       size = recv(create_socket, buffer, BUF-1, 0);
+
+       if(size > 0)
+       {
+            buffer[size] ='\0';
+            printf("%s", buffer);
+       }
+
+    //receive file size
+      size = recv(create_socket, buffer, BUF-1, 0);
+       if(size > 0)
+       {
+            buffer[size] ='\0';
+            printf("%s", buffer);
+       }
+
+       buffer[size] = '\0';
+       filesize = atoi(buffer);
+       printf("%lu bytes\n", filesize);
+
+
+//filepath where files are going to be stored
+
+       strcpy(filepath, "$HOME/Desktop/VSys/");
+       strcat(filepath, filename);
+
+       printf("%s\n", filepath);
+
+       received_file = fopen(filepath, "w");
+       if(received_file == NULL)
+       {
+            printf("Error while creating the file\n");
+            return EXIT_FAILURE;
+       }
+       remain_data = filesize;
+
+       while(remain_data > 0)
+       {
+            if((len = recv(create_socket, buffer, BUF-1, 0)) > 0)
+            {
+                 printf("\n%lu bytes received\n", len);
+                 buffer[len] = '\0';
+                 fwrite(buffer, sizeof(char), len, received_file);
+                 remain_data -= len;
+                 printf("Wrote %lu bytes, %lu bytes remain\n", len, remain_data);
+
+            }
+       }
+
+       printf("Received file\n\n");
+
+       fclose(received_file);
+
      }
+
+//PUT BEFEHL
+
      else if(strncmp(buffer, "put ", 4) == 0)
      {
          if(size > 4)
@@ -117,6 +183,7 @@ int main (int argc, char **argv)
               filename[size-5] = '\0';
          }
 
+         //receive the server's ready
          size = recv(create_socket, buffer, BUF-1, 0);
 
          if(size > 0)
@@ -158,9 +225,9 @@ int main (int argc, char **argv)
               printf("Sent %lu bytes of data, offset ist now %li and %lu bytes remain\n", sent_bytes, offset, remain_data);
          }
 
-         printf("Finished sending\n");
+         printf("Finished sending\n\n");
 
-         //size = recv(create_socket, buffer, BUF-1, 0);
+         close (fd);
      }
   }
   while (strcmp (buffer, "quit\n") != 0);

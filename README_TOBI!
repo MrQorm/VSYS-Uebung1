@@ -1,0 +1,6 @@
+Anmerkung:
+Unser Hauptproblem war, dass wir nicht für jedes "send" ein "recv" hatten, deshalb sind Nachrichten
+herumgeschwirrt und haben in die nächste Message hereingefunkt.
+Ein ähnliches Problem hab ich jetzt allerdings mit dem Get, das hängt irgendwo, nachdem der Server sein ready verschickt hat, fest.
+In Zeile 141 in client.c hab ich jetzt außerdem das Problem, das der Filepath ja nicht in den Argumenten angegeben wird so wie beim Fileserver..
+Vielleicht hast du ja noch eine Idee :)
