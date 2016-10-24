@@ -119,7 +119,6 @@ int main (int argc, char **argv)
 
          size = recv(create_socket, buffer, BUF-1, 0);
 
-         //damit der Befehl send(new_socket, "ready", sizeof("ready"), 0); des Fileservers aufgefangen wird
          if(size > 0)
          {
               buffer[size] ='\0';
@@ -159,9 +158,8 @@ int main (int argc, char **argv)
               printf("Sent %lu bytes of data, offset ist now %li and %lu bytes remain\n", sent_bytes, offset, remain_data);
          }
 
-         printf("Finished sending\n");
+         printf("Finished sending\n\n");
 
-         //size = recv(create_socket, buffer, BUF-1, 0);
          close (fd);
      }
   }
