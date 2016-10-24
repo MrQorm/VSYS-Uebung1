@@ -171,7 +171,10 @@ int main (int argc, char **argv)
              //send ready to client
              send(new_socket, "ready\n", sizeof("ready\n"), 0);
 
-             int fd = open(filename, O_RDONLY);
+             strcpy(filepath, argv[2]);
+             strcat(filepath, filename);
+
+             int fd = open(filepath, O_RDONLY);
 
              if(fd == -1)
              {

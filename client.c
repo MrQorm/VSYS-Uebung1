@@ -138,7 +138,7 @@ int main (int argc, char **argv)
 
 //filepath where files are going to be stored
 
-       strcpy(filepath, "$HOME/Desktop/VSys/");
+       strcpy(filepath, "./");
        strcat(filepath, filename);
 
        printf("%s\n", filepath);
