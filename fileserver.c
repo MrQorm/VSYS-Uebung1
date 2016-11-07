@@ -19,15 +19,101 @@
 #include <string.h>
 
 #include <pthread.h>
+#include <ldap.h>
+#include <termios.h>
+#include <stdbool.h>
 
 #define BUF 1024
 //#define PORT 6543
+
+#define LDAP_HOST "ldap.technikum-wien.at"
+#define LDAP_PORT 389
+#define SEARCHBASE "dc=technikum-wien,dc=at"
+#define SCOPE LDAP_SCOPE_SUBTREE
+#define BIND_USER NULL
+#define BIND_PW NULL
 
 //Notwendig um der Thread-Funktion mehrere Argumente zu übergeben
 struct threadArguments {
     int new_socket;
     char directoryPath[256];
 };
+
+bool ldapLogIn(char *user, char *pass, int UserLen, int PassLen)
+{
+     LDAP *ld, *ld2;
+     LDAPMessage *result, *e;
+
+     int rc = 0;
+
+     char *attributes[3];
+     attributes[0] = strdup("uid");
+     attributes[1] = strdup("cn");
+     attributes[2] = NULL;
+
+     if((ld = ldap_init(LDAP_HOST, LDAP_PORT)) == NULL)
+     {
+          return false;
+     }
+     //anonymous BIND
+
+     rc = ldap_simple_bind_s(ld, BIND_USER, BIND_PW);
+
+     char* temp;
+     temp = (char *) malloc(sizeof(char) * (UserLen + 6));
+     strcpy(temp, "(uid=");
+     strcat(temp, user);
+     strcat(temp, ")");
+     printf("%s\n", temp);
+
+     rc = ldap_search_s(ld, SEARCHBASE, SCOPE, temp, attributes, 0, &result);
+     printf("%d\n", rc);
+     if(rc != LDAP_SUCCESS)
+     {
+          printf("test\n");
+          return false;
+     }
+
+     int NRofRecords = ldap_count_entries(ld, result);
+
+     if(NRofRecords > 0)
+     {
+          /*struct termios term, term_orig;
+          tcgetattr(STDERR_FILENO, &term);
+          term_orig = term;
+          term.c_lflag &= ~ECHO;
+          tcsetattr(STDIN_FILENO, TCSANOW, &term);
+
+          tcsetattr(STDIN_FILENO, TCSANOW, &term_orig);*/
+
+          rc = 0;
+          e = ldap_first_entry(ld, result);
+
+          char *dn;
+
+          if((dn = ldap_get_dn(ld,e)) != NULL)
+          {
+               printf("%s\n", dn);
+
+               ld2 = ldap_init(LDAP_HOST, LDAP_PORT);
+               rc = ldap_simple_bind_s(ld2, dn, pass);
+
+               if(rc != 0)
+               {
+                    return false;
+               }
+               ldap_unbind(ld2);
+               ldap_memfree(dn);
+          }
+     }
+     else
+     {
+          return false;
+     }
+
+     ldap_unbind(ld);
+     return true;
+}
 
 void listServerFiles(char directoryPath[256], int new_socket)
 {
@@ -242,6 +328,9 @@ int putFileToServer(char directoryPath[256], int new_socket, int size, char buff
 //Wird für jeden Thread aufgerufen
 void *connection_handler(void *threadArguments)
 {
+
+
+
   char directoryPath[256];
   struct threadArguments *threadArgs = threadArguments;
   int new_socket = threadArgs->new_socket;
@@ -249,51 +338,116 @@ void *connection_handler(void *threadArguments)
   char buffer[BUF];
   int size;
 
-  do
+  bool loggedIn = false;
+  int msgLen = 0, tries = 0;
+  char* user;
+  char* pass;
+
+
+
+  while(loggedIn == false && tries < 3)
   {
-       memset(&buffer[0], 0 , BUF);
-       printf("Waiting for message\n");
+     recv(new_socket, buffer, BUF-1, 0);
 
-     size = recv (new_socket, buffer, BUF-1, 0);
+     strcpy(buffer, "\nPlease enter your Username: ");
+     send(new_socket, buffer, BUF-1, 0);
 
-     if( size > 0)
+     size = recv(new_socket, buffer, BUF-1, 0);
+
+     for(int i = 0; buffer[i] != '\0'; i++)
      {
-        buffer[size] = '\0';
-        printf ("Message received: %s\n", buffer);
+          msgLen = i+1;
      }
 
-    if (strncmp(buffer, "list", 4) == 0)
-    {
-     listServerFiles(directoryPath, new_socket);
-    }
+     int UserLen = msgLen + 1;
+     user = (char *) malloc(sizeof(char) * (UserLen));
+     strncpy(user, buffer, msgLen);
+     user[UserLen] = '\0';
 
-    else if(strncmp(buffer, "put ", 4) == 0)
-    {
-      putFileToServer(directoryPath, new_socket, size, buffer);
-    }
+     strcpy(buffer, "\nPlease enter your Password: ");
+     send(new_socket, buffer, BUF-1, 0);
 
-    else if(strncmp(buffer, "get ", 4) == 0)
-    {
-      getFileFromServer(directoryPath, new_socket, size, buffer);
-    }
+     size = recv(new_socket, buffer, BUF-1, 0);
 
-    else if(strncmp(buffer, "quit", size-1) == 0)
-    {
-         printf("User terminated connection\n");
-    }
+     for(int i = 0; buffer[i] != '\0'; i++)
+     {
+          msgLen = i+1;
+     }
 
-    else if (size == 0)
-    {
-    printf("Client closed remote socket\n");
-    break;
-    }
+     int PassLen = msgLen + 1;
+     pass = (char *) malloc(sizeof(char) * (PassLen));
+     strncpy(pass, buffer, msgLen);
+     pass[PassLen] = '\0';
 
-    else
-    {
-    printf("Invalid argument. Please try again.\n");
-    }
+     loggedIn = ldapLogIn(user, pass, UserLen, PassLen);
 
-  } while (strncmp (buffer, "quit", 4)  != 0);
+     tries++;
+
+     free(pass);
+     free(user);
+
+     if(loggedIn == true)
+     {
+          send(new_socket, "success", BUF-1, 0);
+     }
+     else if(tries == 3)
+     {
+          send(new_socket, "lockout", BUF-1, 0);
+     }
+     else
+     {
+          send(new_socket, "fail", BUF-1, 0);
+     }
+  }
+
+  if(loggedIn == true)
+  {
+       do
+      {
+           memset(&buffer[0], 0 , BUF);
+           printf("Waiting for message\n");
+
+         size = recv (new_socket, buffer, BUF-1, 0);
+
+         if( size > 0)
+         {
+            buffer[size] = '\0';
+            printf ("Message received: %s\n", buffer);
+         }
+
+        if (strncmp(buffer, "list", 4) == 0)
+        {
+         listServerFiles(directoryPath, new_socket);
+        }
+
+        else if(strncmp(buffer, "put ", 4) == 0)
+        {
+          putFileToServer(directoryPath, new_socket, size, buffer);
+        }
+
+        else if(strncmp(buffer, "get ", 4) == 0)
+        {
+          getFileFromServer(directoryPath, new_socket, size, buffer);
+        }
+
+        else if(strncmp(buffer, "quit", size-1) == 0)
+        {
+             printf("User terminated connection\n");
+        }
+
+        else if (size == 0)
+        {
+        printf("Client closed remote socket\n");
+        break;
+        }
+
+        else
+        {
+        printf("Invalid argument. Please try again.\n");
+        }
+
+      } while (strncmp (buffer, "quit", 4)  != 0);
+   }
 
   pthread_exit(NULL);
 }
@@ -348,7 +502,7 @@ int main (int argc, char **argv)
      while((new_socket = accept ( create_socket, (struct sockaddr *) &cliaddress, &addrlen )))
      {
         printf ("Client connected from %s:%d...\n", inet_ntoa (cliaddress.sin_addr),ntohs(cliaddress.sin_port));
-        strcpy(buffer,"Welcome to myserver, Please enter your command:\n");
+        strcpy(buffer,"Welcome to myserver!\n");
         send(new_socket, buffer, strlen(buffer),0);
 
         struct threadArguments threadArgs;
