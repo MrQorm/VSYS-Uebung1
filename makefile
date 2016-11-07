@@ -1,8 +1,8 @@
 #makefile fuer Socketuebung
 #Tobias Nemecek/Verena Poetzl
 
-CC=g++
-CFLAGS=-g -Wall -O -std=c++11 -pthread
+CC=gcc
+CFLAGS=-g -Wall -O -pthread
 
 all: fileserver client
 
