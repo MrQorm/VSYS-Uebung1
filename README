@@ -1,0 +1,13 @@
+
+**Verena Pötzl und Tobias Nemecek**
+
+Programmaufruf:
+
+Server: ./fileserver <PORT> <Ordnerpfad/zum/Fileserver>
+Client: ./client <IP-Adresse> <PORT>
+
+Beispiel:
+./fileserver 6543 /home/user/Desktop/Fileserver/
+./client 127.0.0.1 6543
+
+Die Dateien des Clients werden im aktuellen Verzeichnis abgelegt.
